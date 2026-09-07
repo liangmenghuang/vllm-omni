@@ -5,8 +5,11 @@
 ``GOLDEN`` holds sha256 digests of the ``(C, H, W)`` uint8 output of Isaac-GR00T's own eval transform
 (``build_image_transformations_albumentations(...)[1]`` applied through ``apply_with_replay``) for the
 synthetic frames built below, at Isaac-GR00T 51d4c89 / albumentations 1.4.18 / opencv 5.0.0.93. The frame
-generators are integer-only so they are identical on every platform; keep them byte-identical to the
-regeneration script attached to the PR, which also cross-checks this module against Isaac-GR00T.
+generators are integer-only so they are identical on every platform.
+
+Regenerating a digest needs Isaac-GR00T installed, whose transformers pin conflicts with this repo's, so it
+cannot run here: in an Isaac-GR00T environment push each ``synthetic_frames()`` frame through that transform
+with ``letter_box_transform`` False and True and hash the output with ``digest()``.
 """
 
 from __future__ import annotations
