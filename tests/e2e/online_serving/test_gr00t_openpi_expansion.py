@@ -29,9 +29,6 @@ test_params = [
         OmniServerParams(
             model=MODEL,
             stage_config_path=get_deploy_config_path("Gr00tN1d7.yaml"),
-            # Since #5140 the config resolver rejects global engine arguments that no stage of the
-            # pipeline owns; GR00T's single diffusion stage does not own --disable-log-stats.
-            server_args=[],
             env_dict={"VLLM_DISABLE_COMPILE_CACHE": "1"},
             init_timeout=1200,
             stage_init_timeout=900,

@@ -151,11 +151,7 @@ class ServingRealtimeRobotOpenPI:
         from vllm_omni.inputs.data import OmniDiffusionSamplingParams
 
         # An optional integer ``seed`` in the inference message becomes the engine request's
-        # ``sampling_params.seed``; a policy whose sampling consumes the request generator
-        # (GR00T-N1.7) then returns the same action chunk for the same observation and seed.
-        # Omitted, ``OmniDiffusionRequest`` assigns a random per-request seed. It is a protocol
-        # field, not an observation key, so it is removed before the observation is forwarded:
-        # pi0 treats unknown top-level observation keys as camera images.
+        # ``sampling_params.seed``; omitted, ``OmniDiffusionRequest`` assigns a random one.
         seed = obs.pop("seed", None)
         extra_args = {
             "reset": reset,

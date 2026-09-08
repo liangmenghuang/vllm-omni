@@ -2,12 +2,10 @@
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM-Omni project
 """The request's seed must reach GR00T's flow-matching noise.
 
-The pipeline used to call ``Gr00tPolicy.get_action(obs)`` with no options, so the generator the
-runner builds from ``sampling_params.seed`` was discarded and the noise came from the process-wide
-``GR00T_NOISE_SEED`` or the global RNG instead: two requests with different seeds were
-indistinguishable, and unseeded serving was order-dependent. These tests pin both ends of the
-plumbing that fixes it: the pipeline handing the request generator to the policy, and the action
-head drawing its initial noise from that generator.
+The runner builds ``sampling_params.generator`` from ``sampling_params.seed``, the pipeline hands
+that generator to the policy, and the action head draws its initial noise from it, so the same
+seed reproduces the same action chunk and different seeds give independent ones. These tests pin
+both ends of that plumbing.
 """
 
 from __future__ import annotations
@@ -95,6 +93,35 @@ def test_auto_assigned_seed_reaches_the_head(pipeline):
     pipeline.forward(req)
 
     assert pipeline.policy.seen_options["generator"].initial_seed() == req.sampling_params.seed
+
+
+def _captured_warnings(monkeypatch) -> list[tuple]:
+    """vLLM loggers do not propagate to the root logger, so ``caplog`` cannot see them; record calls instead."""
+    captured: list[tuple] = []
+    monkeypatch.setattr(pipeline_gr00t.logger, "warning", lambda *args, **kwargs: captured.append(args))
+    return captured
+
+
+def test_unexpected_generator_form_warns_and_falls_back_to_the_seed(pipeline, monkeypatch):
+    """GR00T draws one noise tensor per request, so a list of several generators cannot be honoured."""
+    warnings = _captured_warnings(monkeypatch)
+    generators = [torch.Generator().manual_seed(1), torch.Generator().manual_seed(2)]
+
+    pipeline.forward(_request(generator=generators, seed=7))
+
+    assert len(warnings) == 1
+    assert "torch.Generator" in warnings[0][0]
+    assert pipeline.policy.seen_options["generator"].initial_seed() == 7
+
+
+def test_unexpected_generator_form_without_a_seed_warns_and_leaves_the_global_rng(pipeline, monkeypatch):
+    warnings = _captured_warnings(monkeypatch)
+    generators = [torch.Generator().manual_seed(1), torch.Generator().manual_seed(2)]
+
+    pipeline.forward(_request(generator=generators))
+
+    assert len(warnings) == 1
+    assert pipeline.policy.seen_options is None
 
 
 def _noise_only_head(action_horizon: int, action_dim: int) -> Gr00tN1d7ActionHead:

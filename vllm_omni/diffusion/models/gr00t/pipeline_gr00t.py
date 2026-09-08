@@ -145,13 +145,23 @@ def _noise_generator(sampling_params: OmniDiffusionSamplingParams, device: str) 
     the model device before every forward, and ``OmniDiffusionRequest`` assigns a random
     seed when the caller omits one, so in serving the generator is always present. The
     seed fallback serves callers that bypass the runner (direct use, unit tests). ``None``
-    leaves the action head on the global RNG, as upstream Isaac-GR00T runs.
+    leaves the action head on the global RNG, as upstream Isaac-GR00T runs. GR00T draws one
+    noise tensor per request, so a generator in any other form (for example a list of several
+    generators) is ignored with a warning and the seed fallback applies.
     """
     generator = sampling_params.generator
     if isinstance(generator, list) and len(generator) == 1:
         generator = generator[0]
     if isinstance(generator, torch.Generator):
         return generator
+    if generator is not None:
+        received = f"a list of {len(generator)} generators" if isinstance(generator, list) else type(generator).__name__
+        logger.warning(
+            "GR00T expects a single torch.Generator per request but got %s; ignoring it. The initial noise "
+            "falls back to sampling_params.seed=%s, or to the global RNG when that is None.",
+            received,
+            sampling_params.seed,
+        )
     if sampling_params.seed is not None:
         return torch.Generator(device=device).manual_seed(int(sampling_params.seed))
     return None
